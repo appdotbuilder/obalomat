@@ -1,22 +1,54 @@
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type UpdateUserInput, type User } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateUserProfile(input: UpdateUserInput): Promise<User> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating user profile information (company details, contact info, etc.).
-    // Should validate that user exists and update only provided fields.
-    // Should update the updated_at timestamp.
-    return Promise.resolve({
-        id: input.id,
-        email: '',
-        password_hash: '',
-        company_name: input.company_name || '',
-        contact_person: input.contact_person || '',
-        phone: input.phone || null,
-        role: 'buyer',
-        location: input.location || '',
-        description: input.description || null,
-        website: input.website || null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as User);
-}
+export const updateUserProfile = async (input: UpdateUserInput): Promise<User> => {
+  try {
+    // First, check if user exists
+    const existingUser = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.id))
+      .execute();
+
+    if (existingUser.length === 0) {
+      throw new Error(`User with id ${input.id} not found`);
+    }
+
+    // Build update object with only provided fields
+    const updateData: Partial<typeof usersTable.$inferInsert> = {
+      updated_at: new Date()
+    };
+
+    if (input.company_name !== undefined) {
+      updateData.company_name = input.company_name;
+    }
+    if (input.contact_person !== undefined) {
+      updateData.contact_person = input.contact_person;
+    }
+    if (input.phone !== undefined) {
+      updateData.phone = input.phone;
+    }
+    if (input.location !== undefined) {
+      updateData.location = input.location;
+    }
+    if (input.description !== undefined) {
+      updateData.description = input.description;
+    }
+    if (input.website !== undefined) {
+      updateData.website = input.website;
+    }
+
+    // Update the user record
+    const result = await db.update(usersTable)
+      .set(updateData)
+      .where(eq(usersTable.id, input.id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('User profile update failed:', error);
+    throw error;
+  }
+};
